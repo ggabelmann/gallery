@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>gallery</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body>
+
+<div id="navDiv">
+   <span id="begin">begin</span>
+   <span id="previous">previous</span>
+   <span id="next">next</span>
+   <span id="end">end</span>
+   <span id="currently"></span>
+</div>
+
+<div id="imageDiv"/>
+
+   <script type="text/coffeescript">
+      $(() ->
+         getQuery = () ->
+            result = {}
+            splitQs = window.location.search.substring(1).split('&');
+            for pair in splitQs
+               [name, val] = pair.split('=')
+               result[name] = decodeURIComponent(val)
+            return result
+
+         LinkModel = Backbone.Model.extend(
+            url: () ->
+              return this.get('link')
+         )
+
+         LinksCollection = Backbone.Collection.extend(
+            model: LinkModel
+         )
+
+         GalleryAppModel = Backbone.Model.extend(
+            initialize: () ->
+               this.links = new LinksCollection()
+               this.begin()
+
+            begin: () ->
+               this.set('index', 0)
+
+            # Returns a LinkModel.
+            currentLink: () ->
+               this.links.at(this.get('index'))
+
+            # Returns a number between 0 and length() - 1, inclusive.
+            currentPosition: () ->
+               this.get('index')
+
+            decrement: () ->
+               if this.currentPosition() > 0
+                  this.set('index', this.get('index') - 1)
+
+            end: () ->
+               this.set('index', this.length() - 1)
+
+            # Sets the url on the internal collection, fetches it, sets the current index to 0, returns a promise.
+            load: (loadUrl) ->
+               this.links.url = loadUrl
+               this.links.fetch(
+                  reset: true
+
+                  success: () => # fat arrow
+                     this.begin()
+               )
+
+            increment: () ->
+               if this.currentPosition() < this.length() - 1
+                  this.set('index', this.get('index') + 1)
+
+            length: () ->
+               this.links.length
+         )
+
+         ImageView = Backbone.View.extend(
+            el: imageDiv # Can't have quotes here.
+
+            initialize: () ->
+               this.listenTo(galleryAppModel, 'change', this.render)
+               this.render()
+
+            render: () ->
+               this.$el.html("<img src='#{ galleryAppModel.currentLink().url() }'/>")
+         )
+
+         NavView = Backbone.View.extend(
+            el: navDiv # Can't have quotes here.
+
+            initialize: () ->
+               this.listenTo(galleryAppModel, 'change', this.render)
+               this.render()
+
+            events:
+               'click #begin': () ->
+                  galleryAppModel.begin()
+
+               'click #end': () ->
+                  galleryAppModel.end()
+
+               'click #next': () ->
+                  galleryAppModel.increment()
+
+               'click #previous': () ->
+                  galleryAppModel.decrement()
+
+            render: () ->
+               $('#currently').text("(#{ galleryAppModel.currentPosition() + 1 } of #{ galleryAppModel.length() })")
+         )
+
+         galleryAppModel = new GalleryAppModel()
+         jsonUrl = getQuery()['json']
+         promise = galleryAppModel.load(jsonUrl)
+
+         promise.then(
+            (data, textStatus, jqXHR) ->
+               navView = new NavView()
+               imageView = new ImageView()
+
+            (jqXHR, textStatus, errorThrown) ->
+               alert('An error occurred while loading gallery data: ' + textStatus)
+         )
+      )
+   </script>
+
+
+  <script src="../lib/underscore-min.js"></script>
+  <script src="../lib/jquery-min.js"></script>
+  <script src="../lib/json2.js"></script>
+  <script src="../lib/backbone-min.js"></script>
+  <script src="../lib/coffee-script-min.js"></script>
+
+</body>
+</html>
