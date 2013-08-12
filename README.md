@@ -16,6 +16,8 @@ http://localhost:8000/src/gallery.html?json=../example/desktops.json
 
 gallery has relative links to the libraries it needs so all it needs from the user is the location of the json file.
 
+Note: temporarily the following link (https://dl.dropboxusercontent.com/u/2002293/gallery-master/src/gallery.html?json=../example/desktops.json) can be used to test gallery.
+
 Future
 ======
 
