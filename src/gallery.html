@@ -3,6 +3,10 @@
 <head>
 <title>gallery</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Pragma" content="no-cache" />
+<style>
+   .resize { max-height: 850px; width: auto; }
+</style>
 </head>
 <body>
 
@@ -11,6 +15,7 @@
    <span id="previous">previous</span>
    <span id="next">next</span>
    <span id="end">end</span>
+   <span id="resize">toggleResize</span>
    <span id="currently"></span>
 </div>
 
@@ -36,8 +41,11 @@
          )
 
          GalleryAppModel = Backbone.Model.extend(
+            # Note: the defaults: {} behavior of Model doesn't work well.
+
             initialize: () ->
                this.links = new LinksCollection()
+               this.resize = false
                this.begin()
 
             begin: () ->
@@ -74,6 +82,13 @@
 
             length: () ->
                this.links.length
+
+            # Will be true or false.
+            isResize: () ->
+               this.get('resize')
+
+            toggleResize: () ->
+               this.set('resize', not this.get('resize'))
          )
 
          ImageView = Backbone.View.extend(
@@ -84,7 +99,10 @@
                this.render()
 
             render: () ->
-               this.$el.html("<img src='#{ galleryAppModel.currentLink().url() }'/>")
+               if galleryAppModel.isResize()
+                  this.$el.html("<img class='resize' src='#{ galleryAppModel.currentLink().url() }'/>")
+               else
+                  this.$el.html("<img src='#{ galleryAppModel.currentLink().url() }'/>")
          )
 
          NavView = Backbone.View.extend(
@@ -106,6 +124,9 @@
 
                'click #previous': () ->
                   galleryAppModel.decrement()
+
+               'click #resize': () ->
+                  galleryAppModel.toggleResize()
 
             render: () ->
                $('#currently').text("(#{ galleryAppModel.currentPosition() + 1 } of #{ galleryAppModel.length() })")
