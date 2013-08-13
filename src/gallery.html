@@ -2,8 +2,9 @@
 <html>
 <head>
 <title>gallery</title>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="-1"/>
 <style>
    .resize { max-height: 850px; width: auto; }
 </style>
@@ -21,138 +22,147 @@
 
 <div id="imageDiv"/>
 
-   <script type="text/coffeescript">
+<script type="text/coffeescript">
+
+      # Define the model for Links.
+      LinkModel = Backbone.Model.extend(
+         url: () ->
+           return this.get('link')
+      )
+
+      # Define what a collection of Links is.
+      LinksCollection = Backbone.Collection.extend(
+         model: LinkModel
+      )
+
+      # Define the model for the Gallery application.
+      GalleryAppModel = Backbone.Model.extend(
+         # Note: the defaults: {} behavior of Model doesn't work well?
+
+         initialize: () ->
+            @links = new LinksCollection()
+            this.set('resize', false)
+            this.begin()
+
+         begin: () ->
+            this.set('index', 0)
+
+         # Returns a LinkModel.
+         currentLink: () ->
+            @links.at(this.get('index'))
+
+         # Returns a number between 0 and length() - 1, inclusive.
+         currentPosition: () ->
+            this.get('index')
+
+         decrement: () ->
+            if this.currentPosition() > 0
+               this.set('index', this.get('index') - 1)
+
+         end: () ->
+            this.set('index', this.length() - 1)
+
+         # Sets the url on the internal collection, fetches it, sets the current index to 0, returns a promise (not in that order).
+         load: (loadUrl) ->
+            @links.url = loadUrl
+            @links.fetch(
+               reset: true
+
+               success: () => # fat arrow
+                  this.begin()
+            )
+
+         increment: () ->
+            if this.currentPosition() < this.length() - 1
+               this.set('index', this.get('index') + 1)
+
+         length: () ->
+            @links.length
+
+         # Will be true or false.
+         isResize: () ->
+            this.get('resize')
+
+         toggleResize: () ->
+            this.set('resize', not this.get('resize'))
+      )
+
+      # Define the view for the image/photo.
+      ImageView = Backbone.View.extend(
+         el: imageDiv # Can't have quotes here.
+
+         initialize: (theModel) ->
+            @galleryAppModel = theModel
+            this.listenTo(@galleryAppModel, 'change', this.render)
+            this.render()
+
+         render: () ->
+            if @galleryAppModel.isResize()
+               this.$el.html("<img class='resize' src='#{ @galleryAppModel.currentLink().url() }'/>")
+            else
+               this.$el.html("<img src='#{ @galleryAppModel.currentLink().url() }'/>")
+      )
+
+      # Define the view for the navigation bar.
+      NavView = Backbone.View.extend(
+         el: navDiv # Can't have quotes here.
+
+         initialize: (theModel) ->
+            @galleryAppModel = theModel
+            this.listenTo(@galleryAppModel, 'change', this.render)
+            this.render()
+
+         events:
+            'click #begin': () ->
+               @galleryAppModel.begin()
+
+            'click #end': () ->
+               @galleryAppModel.end()
+
+            'click #next': () ->
+               @galleryAppModel.increment()
+
+            'click #previous': () ->
+               @galleryAppModel.decrement()
+
+            'click #resize': () ->
+               @galleryAppModel.toggleResize()
+
+         render: () ->
+            $('#currently').text("(#{ @galleryAppModel.currentPosition() + 1 } of #{ @galleryAppModel.length() })")
+      )
+
+      # Function to get keys/values of the url.
+      getSearchKeyValue = () ->
+         result = {}
+         splitSearch = window.location.search.substring(1).split('&');
+         for pair in splitSearch
+            [name, val] = pair.split('=')
+            result[name] = decodeURIComponent(val)
+         return result
+
+      # Wait for the web page to be fetched, then load the json, then create the views (which automatically renders them).
       $(() ->
-         getQuery = () ->
-            result = {}
-            splitQs = window.location.search.substring(1).split('&');
-            for pair in splitQs
-               [name, val] = pair.split('=')
-               result[name] = decodeURIComponent(val)
-            return result
-
-         LinkModel = Backbone.Model.extend(
-            url: () ->
-              return this.get('link')
-         )
-
-         LinksCollection = Backbone.Collection.extend(
-            model: LinkModel
-         )
-
-         GalleryAppModel = Backbone.Model.extend(
-            # Note: the defaults: {} behavior of Model doesn't work well.
-
-            initialize: () ->
-               this.links = new LinksCollection()
-               this.resize = false
-               this.begin()
-
-            begin: () ->
-               this.set('index', 0)
-
-            # Returns a LinkModel.
-            currentLink: () ->
-               this.links.at(this.get('index'))
-
-            # Returns a number between 0 and length() - 1, inclusive.
-            currentPosition: () ->
-               this.get('index')
-
-            decrement: () ->
-               if this.currentPosition() > 0
-                  this.set('index', this.get('index') - 1)
-
-            end: () ->
-               this.set('index', this.length() - 1)
-
-            # Sets the url on the internal collection, fetches it, sets the current index to 0, returns a promise.
-            load: (loadUrl) ->
-               this.links.url = loadUrl
-               this.links.fetch(
-                  reset: true
-
-                  success: () => # fat arrow
-                     this.begin()
-               )
-
-            increment: () ->
-               if this.currentPosition() < this.length() - 1
-                  this.set('index', this.get('index') + 1)
-
-            length: () ->
-               this.links.length
-
-            # Will be true or false.
-            isResize: () ->
-               this.get('resize')
-
-            toggleResize: () ->
-               this.set('resize', not this.get('resize'))
-         )
-
-         ImageView = Backbone.View.extend(
-            el: imageDiv # Can't have quotes here.
-
-            initialize: () ->
-               this.listenTo(galleryAppModel, 'change', this.render)
-               this.render()
-
-            render: () ->
-               if galleryAppModel.isResize()
-                  this.$el.html("<img class='resize' src='#{ galleryAppModel.currentLink().url() }'/>")
-               else
-                  this.$el.html("<img src='#{ galleryAppModel.currentLink().url() }'/>")
-         )
-
-         NavView = Backbone.View.extend(
-            el: navDiv # Can't have quotes here.
-
-            initialize: () ->
-               this.listenTo(galleryAppModel, 'change', this.render)
-               this.render()
-
-            events:
-               'click #begin': () ->
-                  galleryAppModel.begin()
-
-               'click #end': () ->
-                  galleryAppModel.end()
-
-               'click #next': () ->
-                  galleryAppModel.increment()
-
-               'click #previous': () ->
-                  galleryAppModel.decrement()
-
-               'click #resize': () ->
-                  galleryAppModel.toggleResize()
-
-            render: () ->
-               $('#currently').text("(#{ galleryAppModel.currentPosition() + 1 } of #{ galleryAppModel.length() })")
-         )
-
          galleryAppModel = new GalleryAppModel()
-         jsonUrl = getQuery()['json']
+         jsonUrl = getSearchKeyValue()['json']
          promise = galleryAppModel.load(jsonUrl)
 
          promise.then(
             (data, textStatus, jqXHR) ->
-               navView = new NavView()
-               imageView = new ImageView()
+               navView = new NavView(galleryAppModel)
+               imageView = new ImageView(galleryAppModel)
 
             (jqXHR, textStatus, errorThrown) ->
                alert('An error occurred while loading gallery data: ' + textStatus)
          )
       )
-   </script>
+</script>
 
-
-  <script src="../lib/underscore-min.js"></script>
-  <script src="../lib/jquery-min.js"></script>
-  <script src="../lib/json2.js"></script>
-  <script src="../lib/backbone-min.js"></script>
-  <script src="../lib/coffee-script-min.js"></script>
+<script src="../lib/underscore-min.js"></script>
+<script src="../lib/jquery-min.js"></script>
+<script src="../lib/json2.js"></script>
+<script src="../lib/backbone-min.js"></script>
+<script src="../lib/coffee-script-min.js"></script>
 
 </body>
 </html>
