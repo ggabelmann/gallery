@@ -16,7 +16,7 @@
    <span id="previous">previous</span>
    <span id="next">next</span>
    <span id="end">end</span>
-   <span id="resize">toggleResize</span>
+   <span id="toggleResize">toggleResize</span>
    <span id="currently"></span>
 </div>
 
@@ -27,7 +27,7 @@
       # Define the model for Links.
       LinkModel = Backbone.Model.extend(
          url: () ->
-           return this.get('link')
+            @get('link')
       )
 
       # Define what a collection of Links is.
@@ -36,81 +36,76 @@
       )
 
       # Define the model for the Gallery application.
+      # Note: the defaults: {} behavior of Model doesn't work well?
       GalleryAppModel = Backbone.Model.extend(
-         # Note: the defaults: {} behavior of Model doesn't work well?
-
          initialize: () ->
             @links = new LinksCollection()
-            this.set('resize', false)
-            this.begin()
+            @set('resize', false, silent: true)
+            @begin()
 
          begin: () ->
-            this.set('index', 0)
+            @set('index', 0)
 
          # Returns a LinkModel.
          currentLink: () ->
-            @links.at(this.get('index'))
+            @links.at(@get('index'))
 
          # Returns a number between 0 and length() - 1, inclusive.
          currentPosition: () ->
-            this.get('index')
+            @get('index')
 
          decrement: () ->
-            if this.currentPosition() > 0
-               this.set('index', this.get('index') - 1)
+            if @currentPosition() > 0
+               @set('index', @get('index') - 1)
 
          end: () ->
-            this.set('index', this.length() - 1)
+            @set('index', @length() - 1)
 
          # Sets the url on the internal collection, fetches it, sets the current index to 0, returns a promise (not in that order).
          load: (loadUrl) ->
             @links.url = loadUrl
             @links.fetch(
                reset: true
-
                success: () => # fat arrow
-                  this.begin()
+                  @begin()
             )
 
          increment: () ->
-            if this.currentPosition() < this.length() - 1
-               this.set('index', this.get('index') + 1)
+            if @currentPosition() < @length() - 1
+               @set('index', @get('index') + 1)
 
          length: () ->
             @links.length
 
          # Will be true or false.
          isResize: () ->
-            this.get('resize')
+            @get('resize')
 
          toggleResize: () ->
-            this.set('resize', not this.get('resize'))
+            @set('resize', not @get('resize'))
       )
 
       # Define the view for the image/photo.
       ImageView = Backbone.View.extend(
          el: imageDiv # Can't have quotes here.
 
-         initialize: (theModel) ->
-            @galleryAppModel = theModel
-            this.listenTo(@galleryAppModel, 'change', this.render)
-            this.render()
+         initialize: (@galleryAppModel) ->
+            @listenTo(@galleryAppModel, 'change', @render)
+            @render()
 
          render: () ->
+            @$el.html("<img src='#{ @galleryAppModel.currentLink().url() }'/>")
             if @galleryAppModel.isResize()
-               this.$el.html("<img class='resize' src='#{ @galleryAppModel.currentLink().url() }'/>")
-            else
-               this.$el.html("<img src='#{ @galleryAppModel.currentLink().url() }'/>")
+               $('#imageDiv img').addClass('resize')
       )
 
       # Define the view for the navigation bar.
       NavView = Backbone.View.extend(
          el: navDiv # Can't have quotes here.
 
-         initialize: (theModel) ->
-            @galleryAppModel = theModel
-            this.listenTo(@galleryAppModel, 'change', this.render)
-            this.render()
+         initialize: (@galleryAppModel) ->
+            @listenTo(@galleryAppModel, 'change', @render)
+            @render()
 
          events:
             'click #begin': () ->
@@ -125,7 +120,7 @@
             'click #previous': () ->
                @galleryAppModel.decrement()
 
-            'click #resize': () ->
+            'click #toggleResize': () ->
                @galleryAppModel.toggleResize()
 
          render: () ->
@@ -133,7 +128,7 @@
       )
 
       # Function to get keys/values of the url.
-      getSearchKeyValue = () ->
+      getSearchKeyValues = () ->
          result = {}
          splitSearch = window.location.search.substring(1).split('&');
          for pair in splitSearch
@@ -144,7 +139,7 @@
       # Wait for the web page to be fetched, then load the json, then create the views (which automatically renders them).
       $(() ->
          galleryAppModel = new GalleryAppModel()
-         jsonUrl = getSearchKeyValue()['json']
+         jsonUrl = getSearchKeyValues()['json']
          promise = galleryAppModel.load(jsonUrl)
 
          promise.then(
