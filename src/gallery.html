@@ -94,9 +94,11 @@
             @render()
 
          render: () ->
-            @$el.html("<img src='#{ @galleryAppModel.currentLink().url() }'/>")
-            if @galleryAppModel.isResize()
-               $('#imageDiv img').addClass('resize')
+            img = $('<img>',
+               'class': if @galleryAppModel.isResize() then 'resize' else ''
+               'src': @galleryAppModel.currentLink().url()
+            )
+            @$el.html(img)
       )
 
       # Define the view for the navigation bar.
