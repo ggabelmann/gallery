@@ -6,6 +6,7 @@
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="-1"/>
 <style>
+   .toggledOn { font-weight: bold; }
    .resize { max-height: 850px; width: auto; }
 </style>
 </head>
@@ -16,14 +17,16 @@
    <span id="previous">previous</span>
    <span id="next">next</span>
    <span id="end">end</span>
+   <span id="toggleRandom">toggleRandom</span> <!-- next or previous instead picks a random image -->
    <span id="toggleResize">toggleResize</span>
+   <span id="toggleSlideshow">toggleSlideshow</span> <!-- auto calls next -->
+   <span id="toggleWrap">toggleWrap</span> <!-- click previous when at beginning will go to end, and vice-versa -->
    <span id="currently"></span>
 </div>
 
 <div id="imageDiv"/>
 
 <script type="text/coffeescript">
-
       # Define the model for Links.
       LinkModel = Backbone.Model.extend(
          url: () ->
@@ -40,9 +43,17 @@
       GalleryAppModel = Backbone.Model.extend(
          initialize: () ->
             @links = new LinksCollection()
+            @set('index', 0, silent: true)
+            @set('random', false, silent: true)
             @set('resize', false, silent: true)
-            @begin()
-
+            @set('slideshow', false, silent: true)
+            @set('wrap', false, silent: true)
+            
+            interval(4000, () =>
+               if @isSlideshow()
+                  @increment()
+            )
+            
          begin: () ->
             @set('index', 0)
 
@@ -55,8 +66,14 @@
             @get('index')
 
          decrement: () ->
-            if @currentPosition() > 0
-               @set('index', @get('index') - 1)
+            if @isRandom()
+               @setRandomIndex()
+            else
+               if @currentPosition() == 0
+                  if @isWrap()
+                     @end()
+               else
+                  @set('index', @get('index') - 1)
 
          end: () ->
             @set('index', @length() - 1)
@@ -71,11 +88,33 @@
             )
 
          increment: () ->
-            if @currentPosition() < @length() - 1
-               @set('index', @get('index') + 1)
-
+            if @isRandom()
+               @setRandomIndex()
+            else
+               if @currentPosition() == (@length() - 1)
+                  if @isWrap()
+                     @begin()
+               else
+                  @set('index', @get('index') + 1)
+                  
          length: () ->
             @links.length
+
+         # Will be true or false.
+         isRandom: () ->
+            @get('random')
+
+         # Private method.
+         setRandomIndex: () ->
+            if @length() > 1
+               loop
+                  randomPosition = Math.floor(Math.random() * @length())
+                  if randomPosition != @currentPosition()
+                     @set('index', randomPosition)
+                     return
+
+         toggleRandom: () ->
+            @set('random', not @get('random'))
 
          # Will be true or false.
          isResize: () ->
@@ -83,6 +122,20 @@
 
          toggleResize: () ->
             @set('resize', not @get('resize'))
+
+         # Will be true or false.
+         isSlideshow: () ->
+            @get('slideshow')
+
+         toggleSlideshow: () ->
+            @set('slideshow', not @get('slideshow'))
+
+         # Will be true or false.
+         isWrap: () ->
+            @get('wrap')
+
+         toggleWrap: () ->
+            @set('wrap', not @get('wrap'))
       )
 
       # Define the view for the image/photo.
@@ -122,10 +175,24 @@
             'click #previous': () ->
                @galleryAppModel.decrement()
 
+            'click #toggleRandom': () ->
+               @galleryAppModel.toggleRandom()
+
             'click #toggleResize': () ->
                @galleryAppModel.toggleResize()
 
+            'click #toggleSlideshow': () ->
+               @galleryAppModel.toggleSlideshow()
+
+            'click #toggleWrap': () ->
+               @galleryAppModel.toggleWrap()
+
          render: () ->
+            if @galleryAppModel.isRandom() then $('#toggleRandom').addClass('toggledOn') else $('#toggleRandom').removeClass('toggledOn')
+            if @galleryAppModel.isResize() then $('#toggleResize').addClass('toggledOn') else $('#toggleResize').removeClass('toggledOn')
+            if @galleryAppModel.isSlideshow() then $('#toggleSlideshow').addClass('toggledOn') else $('#toggleSlideshow').removeClass('toggledOn')
+            if @galleryAppModel.isWrap() then $('#toggleWrap').addClass('toggledOn') else $('#toggleWrap').removeClass('toggledOn')
+            
             $('#currently').text("(#{ @galleryAppModel.currentPosition() + 1 } of #{ @galleryAppModel.length() })")
       )
 
@@ -137,7 +204,11 @@
             [name, val] = pair.split('=')
             result[name] = decodeURIComponent(val)
          return result
-
+      
+      # Function to make setting intervals nicer.
+      interval = (ms, callback) ->
+         setInterval(callback, ms)
+      
       # Wait for the web page to be fetched, then load the json, then create the views (which automatically renders them).
       $(() ->
          galleryAppModel = new GalleryAppModel()
